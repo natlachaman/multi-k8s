@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
   GKE_CLUSTER: multi-cluster
   GKE_ZONE: europe-central2-a   
 
@@ -54,9 +53,12 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v0
         with:
-          service_account: ${{ secrets.GKE_SA_EMAIL}}
-          project_id: ${{ secrets.GKE_PROJECT }}
-          configure-docker: 'true'
+          service_account_email: ${{ secrets.GKE_SA_EMAIL}}
+          project_id: ${{ secrets.PROJECT_ID }}
+
+      - name: Configure Docker to use gcloud CLI
+        run: |-
+          gcloud --quiet auth configure-docker
 
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v0

@@ -1,13 +1,19 @@
-name: Deploy Pipeline
+-name: Build and Deploy to GKE
 on:
   push:
     branches:
-      - master
+      - main
   workflow_dispatch:
 
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: multi-cluster
+  GKE_ZONE: europe-central2-a   
+
 jobs:
-  build:
+  setup-build-push-and-deploy:
     runs-on: ubuntu-latest
+    environment: prod
     strategy:
       matrix:
         include:
@@ -44,6 +50,19 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v0
+        with:
+          service_account: ${{ secrets.GKE_SA_EMAIL}}
+          project_id: ${{ secrets.GKE_PROJECT }}
+          configure-docker: 'true'
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v0
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
       
       - name: Build & test client docker dev image
         run: |
@@ -61,39 +80,13 @@ jobs:
         with:
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.tag }}:latest
+          tags: ${{ matrix.tag }}:${{ github.run_number }}
           cache-to: ${{ matrix.cache-to }}
           cache-from: ${{ matrix.cache-from }}
 
-      - name: Move cache
+      - name: Deploy K8s files to GKE
         run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-      - name: Get Timestamp
-        uses: gerred/actions/current-time@master
-        id: current-time
-
-      - name: Run String Replace
-        uses: frabert/replace-string-action@master
-        id: format-time
-        with:
-          pattern: '[:\.]+'
-          string: "${{ steps.current-time.outputs.time }}"
-          replace-with: '-'
-          flags: 'g'
-
-      - name: Generate deployment package
-        run: zip -r deploy.zip . -x '*.git*'
- 
-      - name: Deploy to EB
-        uses: einaregilsson/beanstalk-deploy@v18
-        with:
-          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
-          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
-          application_name: multi-docker
-          environment_name: Multidocker-env
-          existing_bucket_name: elasticbeanstalk-us-east-1-642447626057
-          region: us-east-1
-          version_label: "docker-app-${{ steps.format-time.outputs.replaced }}"
-          deployment_package: deploy.zip
+          kubectl apply -f k8s
+          kubectl set image deployments/client-deployment client=natwimt/mutli-client:${{ github.run_number }}
+          kubectl set image deployments/server-deployment server=natwimt/mutli-server:${{ github.run_number }}
+          kubectl set image deployments/worker-deployment worker=natwimt/mutli-worker:${{ github.run_number }}

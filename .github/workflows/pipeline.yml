@@ -57,7 +57,7 @@ jobs:
       - name: Authenticate gcloud
         uses: 'google-github-actions/auth@v0'
         with:
-          workload_identity_provider: //iam.googleapis.com/projects/228935338518/locations/global/workloadIdentityPools/multi-k8s-wif/*
+          workload_identity_provider: projects/228935338518/locations/global/workloadIdentityPools/multi-k8s-wif/providers/githubactions
           service_account: ${{ secrets.GKE_SA_EMAIL}}
 
       - name: Set up gcloud CLI components (kubectl , SDK, ...)

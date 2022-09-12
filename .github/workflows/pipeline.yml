@@ -50,11 +50,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@v0
+      - name: Authenticate gcloud
+        uses: 'google-github-actions/auth@v0'
         with:
-          service_account_email: ${{ secrets.GKE_SA_EMAIL}}
-          project_id: ${{ secrets.PROJECT_ID }}
+          service_account: ${{ secrets.GKE_SA_EMAIL}}
+
+      - name: Set up gcloud CLI components (kubectl , SDK, ...)
+        uses: google-github-actions/setup-gcloud@v0
 
       - name: Configure Docker to use gcloud CLI
         run: |-

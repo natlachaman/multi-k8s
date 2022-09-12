@@ -3,4 +3,4 @@
 .AppleDouble
 .LSOverride
 
-.credentials-*.json
+.credentials-gke.json

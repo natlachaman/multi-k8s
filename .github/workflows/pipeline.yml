@@ -1,0 +1,99 @@
+name: Deploy Pipeline
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+         - context: ./client
+           tag: natwimt/multi-client
+           cache-from: type=local,src=/tmp/.buildx-cache/client
+           cache-to: type=local,dest=/tmp/.buildx-cache-new/client
+
+         - context: ./server
+           tag: natwimt/multi-server
+           cache-from: type=local,src=/tmp/.buildx-cache/server
+           cache-to: type=local,dest=/tmp/.buildx-cache-new/server
+
+         - context: ./nginx
+           tag: natwimt/multi-nginx
+           cache-from: type=local,src=/tmp/.buildx-cache/nginx
+           cache-to: type=local,dest=/tmp/.buildx-cache-new/nginx
+
+         - context: ./worker
+           tag: natwimt/multi-worker
+           cache-from: type=local,src=/tmp/.buildx-cache/worker
+           cache-to: type=local,dest=/tmp/.buildx-cache-new/worker
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      
+      - name: Build & test client docker dev image
+        run: |
+          docker build -t natwimt/react-test -f ./client/Dockerfile.dev ./client
+          docker run -e CI=true natwimt/react-test npm test -- --coverage
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build & Push images
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          context: ${{ matrix.context }}
+          tags: ${{ matrix.tag }}:latest
+          cache-to: ${{ matrix.cache-to }}
+          cache-from: ${{ matrix.cache-from }}
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Get Timestamp
+        uses: gerred/actions/current-time@master
+        id: current-time
+
+      - name: Run String Replace
+        uses: frabert/replace-string-action@master
+        id: format-time
+        with:
+          pattern: '[:\.]+'
+          string: "${{ steps.current-time.outputs.time }}"
+          replace-with: '-'
+          flags: 'g'
+
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x '*.git*'
+ 
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v18
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          application_name: multi-docker
+          environment_name: Multidocker-env
+          existing_bucket_name: elasticbeanstalk-us-east-1-642447626057
+          region: us-east-1
+          version_label: "docker-app-${{ steps.format-time.outputs.replaced }}"
+          deployment_package: deploy.zip

@@ -4,3 +4,4 @@
 .LSOverride
 
 .credentials-gke.json
+gha-creds-*.json

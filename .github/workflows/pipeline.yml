@@ -30,11 +30,6 @@ jobs:
            cache-from: type=local,src=/tmp/.buildx-cache/server
            cache-to: type=local,dest=/tmp/.buildx-cache-new/server
 
-         - context: ./nginx
-           tag: natwimt/multi-nginx
-           cache-from: type=local,src=/tmp/.buildx-cache/nginx
-           cache-to: type=local,dest=/tmp/.buildx-cache-new/nginx
-
          - context: ./worker
            tag: natwimt/multi-worker
            cache-from: type=local,src=/tmp/.buildx-cache/worker

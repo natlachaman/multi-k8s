@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: natwimt/multi-client:latest-v1
+          image: natwimt/multi-client
           ports: 
             - containerPort: 3000
 

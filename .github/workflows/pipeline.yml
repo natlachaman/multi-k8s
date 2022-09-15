@@ -1,16 +1,15 @@
-name: Build and Deploy to GKE
+name: Build and Publish
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
-env:
-  GKE_CLUSTER: multi-cluster
-  GKE_ZONE: europe-west1-b 
-
 jobs:
-  setup-build-push-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     environment: prod
     # Add "id-token" with the intended permissions.
@@ -48,26 +47,6 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-
-      - name: Authenticate gcloud
-        uses: 'google-github-actions/auth@v0'
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF }}
-          service_account: ${{ secrets.GKE_SA_EMAIL }}
-
-      - name: Set up gcloud CLI components (kubectl , SDK, ...)
-        uses: google-github-actions/setup-gcloud@v0
-
-      - name: Configure Docker to use gcloud CLI
-        run: |-
-          gcloud --quiet auth configure-docker
-
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v0
-        with:
-          project_id: ${{ secrets.PROJECT_ID }}
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_ZONE }}
       
       - name: Build & test client docker dev image
         run: |
@@ -75,12 +54,14 @@ jobs:
           docker run -e CI=true natwimt/react-test npm test -- --coverage
 
       - name: Login to DockerHub
+        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build & Push images
+        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v2
         with:
           push: true
@@ -89,10 +70,12 @@ jobs:
           cache-to: ${{ matrix.cache-to }}
           cache-from: ${{ matrix.cache-from }}
 
-      - name: Deploy K8s files to GKE
-        run: |
-          kubectl apply -f k8s
-          kubectl set image deployments/client-deployment client=natwimt/mutli-client:${{ github.run_number }}
-          kubectl set image deployments/server-deployment server=natwimt/mutli-server:${{ github.run_number }}
-          kubectl set image deployments/worker-deployment worker=natwimt/mutli-worker:${{ github.run_number }}
-          kubectl get pods -o wide
+  deploy:
+    needs: build-and-push
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: prod
+    secrets:
+      project_id: ${{ secrets.PROJECT_ID }}
+      gke_sa_email: ${{ secrets.GKE_SA_EMAIL}}
+      gcp_wif: ${{ secrets.GCP_WIF }}

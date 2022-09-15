@@ -89,10 +89,6 @@ jobs:
           cache-to: ${{ matrix.cache-to }}
           cache-from: ${{ matrix.cache-from }}
 
-      - name: Create k8s secret
-        run: |
-          kubectl create secret generic multi-cluster 
-
       - name: Deploy K8s files to GKE
         run: |
           kubectl apply -f k8s

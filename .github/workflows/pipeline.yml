@@ -7,7 +7,7 @@ on:
 
 env:
   GKE_CLUSTER: multi-cluster
-  GKE_ZONE: europe-central2-a   
+  GKE_ZONE: europe-west1-b 
 
 jobs:
   setup-build-push-and-deploy:

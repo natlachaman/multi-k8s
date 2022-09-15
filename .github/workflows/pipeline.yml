@@ -11,6 +11,7 @@ on:
 env:
   GKE_CLUSTER: multi-cluster
   GKE_ZONE: europe-west1-b 
+  
 
 jobs:
   setup-build-push-and-deploy:
@@ -85,10 +86,10 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: google-github-actions/setup-gcloud@v0
 
-      - name: Configure Docker to use gcloud CLI
-        if: github.ref == 'refs/heads/main'
-        run: |-
-          gcloud --quiet auth configure-docker
+      # - name: Configure Docker to use gcloud CLI
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |-
+      #     gcloud --quiet auth configure-docker
 
       - name: Get GKE credentials
         if: github.ref == 'refs/heads/main'

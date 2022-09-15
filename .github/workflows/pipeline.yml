@@ -8,8 +8,12 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  GKE_CLUSTER: multi-cluster
+  GKE_ZONE: europe-west1-b 
+
 jobs:
-  build-and-push:
+  setup-build-push-and-deploy:
     runs-on: ubuntu-latest
     environment: prod
     # Add "id-token" with the intended permissions.
@@ -70,12 +74,35 @@ jobs:
           cache-to: ${{ matrix.cache-to }}
           cache-from: ${{ matrix.cache-from }}
 
-  deploy:
-    needs: build-and-push
-    uses: ./.github/workflows/deploy.yaml
-    with:
-      environment: prod
-    secrets:
-      project_id: ${{ secrets.PROJECT_ID }}
-      gke_sa_email: ${{ secrets.GKE_SA_EMAIL}}
-      gcp_wif: ${{ secrets.GCP_WIF }}
+      - name: Authenticate gcloud
+        if: github.ref == 'refs/heads/main'
+        uses: 'google-github-actions/auth@v0'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF }}
+          service_account: ${{ secrets.GKE_SA_EMAIL }}
+
+      - name: Set up gcloud CLI components (kubectl , SDK, ...)
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/setup-gcloud@v0
+
+      - name: Configure Docker to use gcloud CLI
+        if: github.ref == 'refs/heads/main'
+        run: |-
+          gcloud --quiet auth configure-docker
+
+      - name: Get GKE credentials
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/get-gke-credentials@v0
+        with:
+          project_id: ${{ secrets.PROJECT_ID }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+
+      - name: Deploy K8s files to GKE
+        if: github.ref == 'refs/heads/main'
+        run: |
+          kubectl apply -f k8s
+          kubectl set image deployments/client-deployment client=natwimt/mutli-client:${{ github.run_number }}
+          kubectl set image deployments/server-deployment server=natwimt/mutli-server:${{ github.run_number }}
+          kubectl set image deployments/worker-deployment worker=natwimt/mutli-worker:${{ github.run_number }}
+          kubectl get pods -o wide

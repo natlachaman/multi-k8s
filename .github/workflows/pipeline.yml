@@ -108,7 +108,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           kubectl apply -f k8s
-          kubectl set image deployments/client-deployment client=natwimt/mutli-client:${{ github.run_number }}
+          kubectl set image deployments/client-deployment client=natwimt/multi-client:${{ github.run_number }}
           kubectl set image deployments/server-deployment server=natwimt/multi-server:${{ github.run_number }}
           kubectl set image deployments/worker-deployment worker=natwimt/multi-worker:${{ github.run_number }}
           kubectl get pods -o wide

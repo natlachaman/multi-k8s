@@ -75,6 +75,11 @@ jobs:
           cache-to: ${{ matrix.cache-to }}
           cache-from: ${{ matrix.cache-from }}
 
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
       - name: Authenticate gcloud
         if: github.ref == 'refs/heads/main'
         uses: 'google-github-actions/auth@v0'
@@ -86,10 +91,10 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: google-github-actions/setup-gcloud@v0
 
-      # - name: Configure Docker to use gcloud CLI
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |-
-      #     gcloud --quiet auth configure-docker
+      - name: Configure Docker to use gcloud CLI
+        if: github.ref == 'refs/heads/main'
+        run: |-
+          gcloud --quiet auth configure-docker
 
       - name: Get GKE credentials
         if: github.ref == 'refs/heads/main'
@@ -104,6 +109,6 @@ jobs:
         run: |
           kubectl apply -f k8s
           kubectl set image deployments/client-deployment client=natwimt/mutli-client:${{ github.run_number }}
-          kubectl set image deployments/server-deployment server=natwimt/mutli-server:${{ github.run_number }}
-          kubectl set image deployments/worker-deployment worker=natwimt/mutli-worker:${{ github.run_number }}
+          kubectl set image deployments/server-deployment server=natwimt/multi-server:${{ github.run_number }}
+          kubectl set image deployments/worker-deployment worker=natwimt/multi-worker:${{ github.run_number }}
           kubectl get pods -o wide
